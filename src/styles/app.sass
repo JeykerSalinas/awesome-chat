@@ -1,0 +1,81 @@
+$surface: linear-gradient(155deg, rgba(59, 130, 246, 0.08), rgba(244, 244, 245, 0.9))
+
+.app-layout
+  max-width: 960px
+  margin: 0 auto
+  padding: 3rem 1.5rem 6rem
+  display: flex
+  flex-direction: column
+  gap: 2.5rem
+
+.hero
+  background: linear-gradient(125deg, rgba(79, 70, 229, 0.08), rgba(30, 64, 175, 0.08))
+  padding: 2.5rem
+  border-radius: 1.75rem
+  border: 1px solid rgba(79, 70, 229, 0.12)
+  box-shadow: 0 25px 50px -25px rgba(79, 70, 229, 0.45)
+
+  h1
+    font-size: clamp(1.9rem, 4vw, 3rem)
+    margin-bottom: 0.75rem
+
+  p
+    max-width: 640px
+    margin: 0
+
+.controls
+  display: grid
+  gap: 0.75rem
+  align-items: start
+
+.controls__label
+  font-weight: 600
+  letter-spacing: 0.04em
+  text-transform: uppercase
+  color: #475569
+
+.controls__select
+  width: 240px
+  padding: 0.55rem 0.85rem
+  border-radius: 0.9rem
+  border: 1px solid rgba(79, 70, 229, 0.22)
+  background: #ffffff
+  font: inherit
+  box-shadow: 0 14px 30px -24px rgba(79, 70, 229, 0.9)
+
+.controls__description
+  margin: 0
+  color: #4b5563
+
+.preview
+  min-height: 420px
+  border-radius: 1.5rem
+  border: 1px dashed rgba(79, 70, 229, 0.35)
+  padding: 2.25rem 1.75rem
+  background: $surface
+  display: flex
+  align-items: center
+  justify-content: center
+  position: relative
+
+.follow-ups
+  h2
+    margin-bottom: 0.75rem
+    font-size: 1.25rem
+
+  ul
+    margin: 0
+    padding-left: 1.25rem
+    display: grid
+    gap: 0.5rem
+
+  li
+    list-style: disc
+
+@media (max-width: 768px)
+  .hero
+    padding: 1.75rem
+
+  .preview
+    padding: 1.75rem 1.25rem
+    min-height: 460px
