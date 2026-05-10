@@ -11,6 +11,7 @@ node_modules
 .DS_Store
 dist
 dist-ssr
+frontend/dist
 coverage
 *.local
 
@@ -29,8 +30,11 @@ coverage
 .eslintcache
 
 # Cypress
-/cypress/videos/
-/cypress/screenshots/
+/frontend/cypress/videos/
+/frontend/cypress/screenshots/
 
 # Vitest
 __screenshots__/
+
+.env
+frontend/.env

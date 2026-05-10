@@ -2,13 +2,13 @@
   "files": [],
   "references": [
     {
-      "path": "./tsconfig.node.json"
+      "path": "./frontend/tsconfig.node.json"
     },
     {
-      "path": "./tsconfig.app.json"
+      "path": "./frontend/tsconfig.app.json"
     },
     {
-      "path": "./tsconfig.cypress-ct.json"
+      "path": "./frontend/tsconfig.cypress-ct.json"
     }
   ],
   "compilerOptions": {

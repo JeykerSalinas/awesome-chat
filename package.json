@@ -7,19 +7,24 @@
     "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --config frontend/vite.config.ts",
     "build": "run-p type-check \"build-only {@}\" --",
-    "preview": "vite preview",
+    "preview": "vite preview --config frontend/vite.config.ts",
     "prepare": "cypress install",
-    "test:e2e": "start-server-and-test preview http://localhost:4173 'cypress run --e2e'",
-    "test:e2e:dev": "start-server-and-test 'vite dev --port 4173' http://localhost:4173 'cypress open --e2e'",
-    "test:unit": "cypress run --component",
-    "test:unit:dev": "cypress open --component",
-    "build-only": "vite build",
-    "type-check": "vue-tsc --build",
-    "format": "prettier --write src/"
+    "test:e2e": "start-server-and-test preview http://localhost:4173 'cypress run --config-file frontend/cypress.config.ts --e2e'",
+    "test:e2e:dev": "start-server-and-test 'vite dev --config frontend/vite.config.ts --port 4173' http://localhost:4173 'cypress open --config-file frontend/cypress.config.ts --e2e'",
+    "test:unit": "cypress run --config-file frontend/cypress.config.ts --component",
+    "test:unit:dev": "cypress open --config-file frontend/cypress.config.ts --component",
+    "build-only": "vite build --config frontend/vite.config.ts",
+    "type-check": "vue-tsc --build tsconfig.json",
+    "format": "prettier --write frontend/src/ frontend/*.ts"
   },
   "dependencies": {
+    "@langchain/core": "^1.1.45",
+    "@langchain/ollama": "^1.2.7",
+    "@langchain/tavily": "^1.2.0",
+    "deepagents": "^1.10.0",
+    "langchain": "^1.4.0",
     "vue": "^3.5.22",
     "vue-router": "^4.6.3"
   },
