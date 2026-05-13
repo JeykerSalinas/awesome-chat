@@ -38,3 +38,9 @@ __screenshots__/
 
 .env
 frontend/.env
+
+# BAckend
+
+/backend/__pycache__
+__pycache__/
+*.pyc

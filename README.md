@@ -35,6 +35,73 @@ npm install
 npm run dev
 ```
 
+### Levantar proyecto completo en dev
+
+```sh
+make dev
+```
+
+### Levantar solo el backend
+
+Sin `make`, puedes iniciarlo directamente con `uvicorn`:
+
+```sh
+cd backend
+source .venv/bin/activate
+uvicorn main:app --reload --host 127.0.0.1 --port 8001
+```
+
+Esto inicia FastAPI con `reload` en `http://127.0.0.1:8001`.
+
+Si prefieres no activar el entorno virtual:
+
+```sh
+cd backend
+.venv/bin/uvicorn main:app --reload --host 127.0.0.1 --port 8001
+```
+
+Con `make`, el comando equivalente es:
+
+```sh
+make dev-backend
+```
+
+### Configurar el proveedor de modelo
+
+El backend soporta `Google`, `OpenAI` y `Ollama`. La selección se hace con variables de entorno en `backend/.env`.
+
+Por defecto, el proyecto queda usando Gemini:
+
+```env
+MODEL_PROVIDER=google
+GOOGLE_API_KEY=tu_api_key
+GOOGLE_MODEL=gemini-2.5-flash-lite
+```
+
+Para usar OpenAI:
+
+```env
+MODEL_PROVIDER=openai
+OPENAI_API_KEY=tu_api_key
+OPENAI_MODEL=gpt-4.1-mini
+```
+
+Para usar Ollama:
+
+```env
+MODEL_PROVIDER=ollama
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=qwen2.5:7b
+OLLAMA_API_STYLE=openai
+```
+
+Targets disponibles:
+
+```sh
+make dev-backend   # FastAPI con reload en http://127.0.0.1:8001
+make dev-frontend  # Vite en http://127.0.0.1:5173
+```
+
 ### Type-Check, Compile and Minify for Production
 
 ```sh

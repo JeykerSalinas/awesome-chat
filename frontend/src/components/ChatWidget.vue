@@ -1,9 +1,6 @@
 <script setup lang="ts">
+import axios from 'axios'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ChatOllama } from '@langchain/ollama'
-import { TavilySearch } from '@langchain/tavily'
-import { createAgent, tool } from 'langchain'
-import * as z from 'zod'
 import SearchSourcesCard from '@/components/SearchSourcesCard.vue'
 
 type ChatRole = 'user' | 'assistant'
@@ -106,79 +103,7 @@ function toAgentMessages(history: ChatMessage[]) {
   }))
 }
 
-function normalizeAgentContent(
-  content: string | Array<{ type?: string; text?: string }>
-) {
-  if (typeof content === 'string') {
-    return content
-  }
-
-  return content
-    .map((block) => {
-      if (typeof block === 'string') {
-        return block
-      }
-
-      return block.type === 'text' ? (block.text ?? '') : ''
-    })
-    .join('')
-    .trim()
-}
-
-function tryParseJson<T>(value: string) {
-  try {
-    return JSON.parse(value) as T
-  } catch {
-    return null
-  }
-}
-
-function isTavilySearchPayload(value: unknown): value is TavilySearchPayload {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const payload = value as Partial<TavilySearchPayload>
-
-  return (
-    typeof payload.query === 'string' &&
-    Array.isArray(payload.results) &&
-    payload.results.every((result) => {
-      return (
-        !!result &&
-        typeof result === 'object' &&
-        typeof (result as TavilySearchResultItem).url === 'string' &&
-        typeof (result as TavilySearchResultItem).title === 'string'
-      )
-    })
-  )
-}
-
-function extractTavilySearchPayload(agentMessages: Array<{ type?: string; name?: string; content?: unknown }>) {
-  for (let index = agentMessages.length - 1; index >= 0; index -= 1) {
-    const message = agentMessages[index]
-
-    if (message?.type !== 'tool' || message?.name !== 'tavily_search') {
-      continue
-    }
-
-    if (typeof message.content === 'string') {
-      const parsedPayload = tryParseJson<TavilySearchPayload>(message.content)
-      if (parsedPayload && isTavilySearchPayload(parsedPayload)) {
-        return parsedPayload
-      }
-    }
-
-    if (Array.isArray(message.content)) {
-      const parsedPayload = tryParseJson<TavilySearchPayload>(normalizeAgentContent(message.content))
-      if (parsedPayload && isTavilySearchPayload(parsedPayload)) {
-        return parsedPayload
-      }
-    }
-  }
-
-  return null
-}
+const apiBaseUrl = import.meta.env.VITE_APP_BACKEND_URL ?? 'http://127.0.0.1:8000'
 
 async function sendMessage() {
   const trimmed = draft.value.trim()
@@ -191,22 +116,27 @@ async function sendMessage() {
   isSending.value = true
 
   try {
-    const result = await agent.invoke({
-      messages: toAgentMessages(messages.value),
+    const { data } = await axios.post<{
+      content: string
+      searchResult?: TavilySearchPayload | null
+    }>(`${apiBaseUrl}/chat`, {
+        messages: toAgentMessages(messages.value),
     })
 
-    const searchResult = extractTavilySearchPayload(result.messages)
-    const lastMessage = result.messages[result.messages.length - 1]
-    const assistantReply = lastMessage
-      ? normalizeAgentContent(lastMessage.content)
-      : (searchResult?.answer ?? '')
+    const assistantReply = data.content.trim() || data.searchResult?.answer?.trim() || ''
 
     if (assistantReply) {
-      appendMessage('assistant', assistantReply, searchResult ?? undefined)
+      appendMessage('assistant', assistantReply, data.searchResult ?? undefined)
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'No se pudo completar la solicitud.'
-    appendMessage('assistant', `Error al consultar el agente: ${message}`)
+    const readableMessage = axios.isAxiosError(error)
+      ? error.response?.status
+        ? `Backend respondió con ${error.response.status}`
+        : `Could not reach the backend at ${apiBaseUrl}. Check that it is running and that CORS allows the current frontend origin.`
+      : error instanceof Error
+        ? error.message
+        : 'Could not complete the request.'
+    appendMessage('assistant', `Agent request error: ${readableMessage}`)
   } finally {
     isSending.value = false
   }
@@ -268,74 +198,6 @@ onBeforeUnmount(() => {
   document.body.style.overflow = ''
   document.body.classList.remove(ASSISTANT_CLASS)
   document.documentElement.style.removeProperty('--assistant-chat-width')
-})
-
-const populationByLocation: Record<string, number> = {
-  'caracas, venezuela': 2945000,
-  'madrid, spain': 3335000,
-  'madrid, españa': 3335000,
-  madrid: 3335000,
-  caracas: 2945000,
-}
-
-// Tools ejecutables: el agente puede llamarlas y LangChain resuelve el ciclo.
-const getWeather = tool(
-  async ({ city }) => `No tengo acceso a clima en tiempo real. Respuesta mock para ${city}: 22°C y soleado.`,
-  {
-    name: 'get_weather',
-    description: 'Get the weather for a given city',
-    schema: z.object({
-      city: z.string().describe('The city to get the weather for'),
-    }),
-  }
-)
-
-const getPopulation = tool(
-  async ({ location }) => {
-    const normalizedLocation = location.trim().toLowerCase()
-    const population = populationByLocation[normalizedLocation]
-
-    if (!population) {
-      return `No tengo población registrada para ${location}.`
-    }
-
-    return `La población estimada de ${location} es ${population.toLocaleString('es-ES')} habitantes.`
-  },
-  {
-    name: 'GetPopulation',
-    description: 'Get the current population in a given location',
-    schema: z.object({
-      location: z.string().describe('The city and country, e.g. Caracas, Venezuela'),
-    }),
-  }
-)
-
-const model = new ChatOllama({
-  model: 'qwen2.5:7b',
-  baseUrl: 'http://127.0.0.1:11434',
-})
-
-// En Vite, las variables del frontend deben publicarse con prefijo VITE_.
-const tavilyApiKey = import.meta.env.VITE_TAVILY_API_KEY
-
-const tavilySearch = tavilyApiKey
-  ? new TavilySearch({
-      tavilyApiKey,
-      maxResults: 3,
-      searchDepth: 'basic',
-      topic: 'general',
-      includeAnswer: true,
-      includeRawContent: 'markdown',
-    })
-  : null
-
-const agentTools = [getWeather, getPopulation, ...(tavilySearch ? [tavilySearch] : [])]
-
-const agent = createAgent({
-  model,
-  tools: agentTools,
-  systemPrompt:
-    'Eres un asistente útil. Usa las tools cuando la pregunta requiera datos de clima, población o información actual de la web.',
 })
 </script>
 

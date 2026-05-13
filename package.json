@@ -23,6 +23,7 @@
     "@langchain/core": "^1.1.45",
     "@langchain/ollama": "^1.2.7",
     "@langchain/tavily": "^1.2.0",
+    "axios": "^1.12.1",
     "deepagents": "^1.10.0",
     "langchain": "^1.4.0",
     "vue": "^3.5.22",
