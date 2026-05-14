@@ -39,8 +39,11 @@ __screenshots__/
 .env
 frontend/.env
 
-# BAckend
+# Backend
 
-/backend/__pycache__
+/backend/__pycache__/
+/backend/.venv/
+.venv/
+venv/
 __pycache__/
 *.pyc
