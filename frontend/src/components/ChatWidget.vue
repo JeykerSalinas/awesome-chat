@@ -28,6 +28,7 @@ export interface ChatMessage {
   author: ChatRole
   content: string
   timestamp: string
+  isLocalError?: boolean
   searchResult?: TavilySearchPayload
 }
 
@@ -44,14 +45,44 @@ const placeholder = computed(() => props.placeholder ?? 'Escribe un mensaje')
 
 type ChatWidgetMode = 'floating' | 'modal' | 'inplace' | 'assistant'
 const autoOpenModes = new Set<ChatWidgetMode>(['inplace', 'assistant'])
+const THREAD_STORAGE_KEY = 'lovely-chat-thread-id'
+const MESSAGES_STORAGE_KEY = 'lovely-chat-messages'
+
+function createThreadId() {
+  return `chat-${crypto.randomUUID()}`
+}
+
+function getInitialThreadId() {
+  if (typeof window === 'undefined') {
+    return createThreadId()
+  }
+
+  return window.localStorage.getItem(THREAD_STORAGE_KEY) || createThreadId()
+}
+
+function getInitialMessages() {
+  if (typeof window === 'undefined') {
+    return props.initialMessages ? [...props.initialMessages] : []
+  }
+
+  const storedMessages = window.localStorage.getItem(MESSAGES_STORAGE_KEY)
+  if (!storedMessages) {
+    return props.initialMessages ? [...props.initialMessages] : []
+  }
+
+  try {
+    return JSON.parse(storedMessages) as ChatMessage[]
+  } catch {
+    return props.initialMessages ? [...props.initialMessages] : []
+  }
+}
 
 const isOpen = ref(autoOpenModes.has(mode.value))
 const draft = ref('')
 const isSending = ref(false)
 
-const messages = ref<ChatMessage[]>(
-  props.initialMessages ? [...props.initialMessages] : []
-)
+const messages = ref<ChatMessage[]>(getInitialMessages())
+const threadId = ref(getInitialThreadId())
 
 const isPersistent = computed(() => mode.value === 'inplace')
 const isFloating = computed(() => mode.value === 'floating')
@@ -76,6 +107,18 @@ watch(mode, (newMode) => {
   isOpen.value = autoOpenModes.has(newMode)
 })
 
+watch(threadId, (nextThreadId) => {
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(THREAD_STORAGE_KEY, nextThreadId)
+  }
+}, { immediate: true })
+
+watch(messages, (nextMessages) => {
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(nextMessages))
+  }
+}, { deep: true, immediate: true })
+
 function toggleChat() {
   isOpen.value = !isOpen.value
 }
@@ -86,21 +129,26 @@ function closeChat() {
   }
 }
 
-function appendMessage(author: ChatRole, content: string, searchResult?: TavilySearchPayload) {
+function appendMessage(
+  author: ChatRole,
+  content: string,
+  searchResult?: TavilySearchPayload,
+  isLocalError = false,
+) {
   messages.value.push({
     id: `${new Date().toISOString()}-${messages.value.length}`,
     author,
     content,
     timestamp: new Date().toISOString(),
+    isLocalError,
     searchResult,
   })
 }
 
-function toAgentMessages(history: ChatMessage[]) {
-  return history.map((message) => ({
-    role: message.author,
-    content: message.content,
-  }))
+function resetConversation() {
+  messages.value = []
+  draft.value = ''
+  threadId.value = createThreadId()
 }
 
 const apiBaseUrl = import.meta.env.VITE_APP_BACKEND_URL ?? 'http://127.0.0.1:8000'
@@ -112,15 +160,18 @@ async function sendMessage() {
   appendMessage('user', trimmed)
   draft.value = ''
 
-  // Enviamos el historial completo para que el agente pueda decidir si usa tools.
+  // El backend recupera la memoria usando `threadId`, así que aquí solo enviamos
+  // el nuevo mensaje del usuario.
   isSending.value = true
 
   try {
     const { data } = await axios.post<{
       content: string
       searchResult?: TavilySearchPayload | null
+      structuredResponse?: unknown
     }>(`${apiBaseUrl}/chat`, {
-        messages: toAgentMessages(messages.value),
+        threadId: threadId.value,
+        message: trimmed,
     })
 
     const assistantReply = data.content.trim() || data.searchResult?.answer?.trim() || ''
@@ -136,7 +187,7 @@ async function sendMessage() {
       : error instanceof Error
         ? error.message
         : 'Could not complete the request.'
-    appendMessage('assistant', `Agent request error: ${readableMessage}`)
+    appendMessage('assistant', `Agent request error: ${readableMessage}`, undefined, true)
   } finally {
     isSending.value = false
   }
@@ -186,7 +237,9 @@ watch(
 watch(
   () => props.initialMessages,
   (next) => {
-    messages.value = next ? [...next] : []
+    if (typeof window === 'undefined') {
+      messages.value = next ? [...next] : []
+    }
   }
 )
 
@@ -253,15 +306,24 @@ onBeforeUnmount(() => {
                   <span class="chat-panel__badge">Live</span>
                   <h2>{{ title }}</h2>
                 </div>
-                <button
-                  v-if="!isPersistent"
-                  type="button"
-                  class="chat-close"
-                  aria-label="Cerrar chat"
-                  @click="closeChat"
-                >
-                  ×
-                </button>
+                <div class="chat-panel__actions">
+                  <button
+                    type="button"
+                    class="chat-reset"
+                    @click="resetConversation"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    v-if="!isPersistent"
+                    type="button"
+                    class="chat-close"
+                    aria-label="Cerrar chat"
+                    @click="closeChat"
+                  >
+                    ×
+                  </button>
+                </div>
               </header>
             </slot>
 
@@ -298,6 +360,17 @@ onBeforeUnmount(() => {
                     </article>
                   </slot>
                 </template>
+                <article
+                  v-if="isSending"
+                  class="chat-message chat-message--assistant chat-message--loading"
+                >
+                  <div class="chat-spinner">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <p>Pensando...</p>
+                </article>
               </div>
             </slot>
 
@@ -318,6 +391,7 @@ onBeforeUnmount(() => {
                     :placeholder="placeholder"
                     data-testid="chat-input"
                     rows="2"
+                    :disabled="isSending"
                     @keydown="onKeydown"
                   />
                 </div>
@@ -325,9 +399,17 @@ onBeforeUnmount(() => {
                   type="button"
                   class="chat-send"
                   data-testid="chat-send"
+                  :disabled="isSending"
                   @click="sendMessage"
                 >
-                  Enviar
+                  <span
+                    v-if="isSending"
+                    class="chat-send__content"
+                  >
+                    <span class="chat-send__spinner"></span>
+                    Enviando
+                  </span>
+                  <span v-else>Enviar</span>
                 </button>
               </footer>
             </slot>
@@ -363,15 +445,24 @@ onBeforeUnmount(() => {
                   <span class="chat-panel__badge">En línea</span>
                   <h2>{{ title }}</h2>
                 </div>
-                <button
-                  v-if="!isPersistent"
-                  type="button"
-                  class="chat-close"
-                  aria-label="Cerrar chat"
-                  @click="closeChat"
-                >
-                  ×
-                </button>
+                <div class="chat-panel__actions">
+                  <button
+                    type="button"
+                    class="chat-reset"
+                    @click="resetConversation"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    v-if="!isPersistent"
+                    type="button"
+                    class="chat-close"
+                    aria-label="Cerrar chat"
+                    @click="closeChat"
+                  >
+                    ×
+                  </button>
+                </div>
               </header>
             </slot>
 
@@ -408,6 +499,17 @@ onBeforeUnmount(() => {
                     </article>
                   </slot>
                 </template>
+                <article
+                  v-if="isSending"
+                  class="chat-message chat-message--assistant chat-message--loading"
+                >
+                  <div class="chat-spinner">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <p>Pensando...</p>
+                </article>
               </div>
             </slot>
 
@@ -428,6 +530,7 @@ onBeforeUnmount(() => {
                     :placeholder="placeholder"
                     data-testid="chat-input"
                     rows="3"
+                    :disabled="isSending"
                     @keydown="onKeydown"
                   />
                 </div>
@@ -435,9 +538,17 @@ onBeforeUnmount(() => {
                   type="button"
                   class="chat-send"
                   data-testid="chat-send"
+                  :disabled="isSending"
                   @click="sendMessage"
                 >
-                  Enviar
+                  <span
+                    v-if="isSending"
+                    class="chat-send__content"
+                  >
+                    <span class="chat-send__spinner"></span>
+                    Enviando
+                  </span>
+                  <span v-else>Enviar</span>
                 </button>
               </footer>
             </slot>
@@ -475,15 +586,24 @@ onBeforeUnmount(() => {
                   </span>
                   <h2>{{ title }}</h2>
                 </div>
-                <button
-                  v-if="!isPersistent"
-                  type="button"
-                  class="chat-close"
-                  aria-label="Cerrar chat"
-                  @click="closeChat"
-                >
-                  ×
-                </button>
+                <div class="chat-panel__actions">
+                  <button
+                    type="button"
+                    class="chat-reset"
+                    @click="resetConversation"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    v-if="!isPersistent"
+                    type="button"
+                    class="chat-close"
+                    aria-label="Cerrar chat"
+                    @click="closeChat"
+                  >
+                    ×
+                  </button>
+                </div>
               </header>
             </slot>
 
@@ -520,6 +640,17 @@ onBeforeUnmount(() => {
                     </article>
                   </slot>
                 </template>
+                <article
+                  v-if="isSending"
+                  class="chat-message chat-message--assistant chat-message--loading"
+                >
+                  <div class="chat-spinner">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <p>Pensando...</p>
+                </article>
               </div>
             </slot>
 
@@ -540,6 +671,7 @@ onBeforeUnmount(() => {
                     :placeholder="placeholder"
                     data-testid="chat-input"
                     rows="3"
+                    :disabled="isSending"
                     @keydown="onKeydown"
                   />
                 </div>
@@ -547,9 +679,17 @@ onBeforeUnmount(() => {
                   type="button"
                   class="chat-send"
                   data-testid="chat-send"
+                  :disabled="isSending"
                   @click="sendMessage"
                 >
-                  Enviar
+                  <span
+                    v-if="isSending"
+                    class="chat-send__content"
+                  >
+                    <span class="chat-send__spinner"></span>
+                    Enviando
+                  </span>
+                  <span v-else>Enviar</span>
                 </button>
               </footer>
             </slot>
@@ -574,6 +714,15 @@ onBeforeUnmount(() => {
           <div class="chat-panel__title">
             <span class="chat-panel__badge chat-panel__badge--inline">Embebido</span>
             <h2>{{ title }}</h2>
+          </div>
+          <div class="chat-panel__actions">
+            <button
+              type="button"
+              class="chat-reset"
+              @click="resetConversation"
+            >
+              Reset
+            </button>
           </div>
         </header>
       </slot>
@@ -611,6 +760,17 @@ onBeforeUnmount(() => {
               </article>
             </slot>
           </template>
+          <article
+            v-if="isSending"
+            class="chat-message chat-message--assistant chat-message--loading"
+          >
+            <div class="chat-spinner">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <p>Pensando...</p>
+          </article>
         </div>
       </slot>
 
@@ -631,6 +791,7 @@ onBeforeUnmount(() => {
               :placeholder="placeholder"
               data-testid="chat-input"
               rows="3"
+              :disabled="isSending"
               @keydown="onKeydown"
             />
           </div>
@@ -638,9 +799,17 @@ onBeforeUnmount(() => {
             type="button"
             class="chat-send"
             data-testid="chat-send"
+            :disabled="isSending"
             @click="sendMessage"
           >
-            Enviar
+            <span
+              v-if="isSending"
+              class="chat-send__content"
+            >
+              <span class="chat-send__spinner"></span>
+              Enviando
+            </span>
+            <span v-else>Enviar</span>
           </button>
         </footer>
       </slot>
