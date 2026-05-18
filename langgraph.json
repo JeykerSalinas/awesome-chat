@@ -1,0 +1,7 @@
+{
+  "dependencies": ["./backend"],
+  "graphs": {
+    "playground-agent": "./backend/app/services/playground_agent.py:agent"
+  },
+  "env": "./backend/.env"
+}

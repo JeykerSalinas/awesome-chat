@@ -7,13 +7,15 @@ from langchain.agents.middleware import AgentMiddleware, ModelRequest, ToolCallR
 from langchain.agents.structured_output import ToolStrategy
 from langchain.tools import tool
 from langchain_core.messages import AIMessage, HumanMessage
-from langchain_tavily import TavilySearch
+from langchain_tavily import TavilyExtract, TavilySearch
 from fastapi import HTTPException
 
 from app.core.config import settings
 from app.schemas.chat import (
     AssistantStructuredResponse,
     PopulationToolInput,
+    TavilyExtractPayload,
+    TavilyExtractToolInput,
     TavilySearchPayload,
     TavilyToolInput,
     WeatherToolInput,
@@ -96,6 +98,7 @@ def should_enable_weather_tool(messages: list[Any]) -> bool:
 def build_agent(
     api_style: Literal["openai", "native"] | None,
     search_capture: list[TavilySearchPayload],
+    extract_capture: list[TavilyExtractPayload],
 ):
     tavily_search_tool = TavilySearch(
         tavily_api_key=settings.tavily_api_key,
@@ -105,6 +108,13 @@ def build_agent(
         topic="general",
         include_answer=True,
         include_raw_content="markdown",
+    )
+    tavily_extract_tool = TavilyExtract(
+        tavily_api_key=settings.tavily_api_key,
+        api_base_url=settings.tavily_base_url,
+        include_images=False,
+        extract_depth="advanced",
+        format="markdown",
     )
 
     @tool(
@@ -143,6 +153,32 @@ def build_agent(
         search_capture.append(payload)
         return payload.model_dump_json()
 
+    @tool(
+        "tavily_extract",
+        args_schema=TavilyExtractToolInput,
+        description=(
+            "Extract the content of one or more specific URLs. "
+            "Use this after you already have target links and need the page content itself."
+        ),
+    )
+    async def tavily_extract(
+        urls: list[str],
+        extract_depth: Literal["basic", "advanced"] = "basic",
+        include_images: bool = False,
+        query: str | None = None,
+    ) -> str:
+        raw_result = await tavily_extract_tool.ainvoke(
+            {
+                "urls": urls,
+                "extract_depth": extract_depth,
+                "include_images": include_images,
+                "query": query,
+            }
+        )
+        payload = TavilyExtractPayload.model_validate(raw_result)
+        extract_capture.append(payload)
+        return payload.model_dump_json()
+
     class DynamicToolMiddleware(AgentMiddleware):
         async def awrap_model_call(self, request: ModelRequest, handler):
             request_tools = list(request.tools or [])
@@ -159,12 +195,12 @@ def build_agent(
 
     return create_agent(
         model=build_model(api_style),
-        tools=[get_population, tavily_search],
+        tools=[get_population, tavily_search, tavily_extract],
         middleware=[DynamicToolMiddleware()],
         system_prompt=(
             "You are a helpful assistant. "
             "Use tools when the question requires weather, population, "
-            "or current information from the web."
+            "current information from the web, or extracting content from specific URLs."
         ),
         response_format=ToolStrategy(
             schema=AssistantStructuredResponse,
@@ -205,6 +241,7 @@ def build_agent_error_detail(error: Exception | None) -> str:
 def build_chat_response(
     result: dict[str, Any],
     search_capture: list[TavilySearchPayload],
+    extract_capture: list[TavilyExtractPayload],
 ):
     from app.schemas.chat import ChatResponse
 
@@ -212,6 +249,7 @@ def build_chat_response(
     structured_response = result.get("structured_response")
     last_ai_message = get_last_ai_message(state_messages)
     latest_search_result = search_capture[-1] if search_capture else None
+    latest_extract_result = extract_capture[-1] if extract_capture else None
 
     content = ""
     parsed_structured_response: AssistantStructuredResponse | None = None
@@ -228,5 +266,6 @@ def build_chat_response(
     return ChatResponse(
         content=content,
         searchResult=latest_search_result,
+        extractResult=latest_extract_result,
         structuredResponse=parsed_structured_response,
     )

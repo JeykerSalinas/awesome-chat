@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import ChatOnlyView from '@/views/ChatOnlyView.vue'
+import ChatView from '@/views/ChatView.vue'
 import PlaygroundView from '@/views/PlaygroundView.vue'
 
 const router = createRouter({
@@ -14,6 +15,11 @@ const router = createRouter({
       path: '/chat',
       name: 'chat-only',
       component: ChatOnlyView,
+    },
+    {
+      path: '/superchat',
+      name: 'super-chat',
+      component: ChatView,
     },
   ],
 })

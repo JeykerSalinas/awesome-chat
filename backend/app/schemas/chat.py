@@ -33,6 +33,24 @@ class TavilySearchPayload(BaseModel):
     images: list[str] = Field(default_factory=list)
 
 
+class TavilyExtractResultItem(BaseModel):
+    url: str
+    raw_content: str | None = None
+    images: list[str] = Field(default_factory=list)
+    favicon: str | None = None
+
+
+class TavilyExtractFailedResultItem(BaseModel):
+    url: str
+    error: str | None = None
+
+
+class TavilyExtractPayload(BaseModel):
+    results: list[TavilyExtractResultItem]
+    failed_results: list[TavilyExtractFailedResultItem] = Field(default_factory=list)
+    response_time: float | None = None
+
+
 class AssistantStructuredResponse(BaseModel):
     answer: str = Field(description="Respuesta final para mostrar al usuario.")
     needs_clarification: bool = Field(
@@ -48,6 +66,7 @@ class AssistantStructuredResponse(BaseModel):
 class ChatResponse(BaseModel):
     content: str
     searchResult: TavilySearchPayload | None = None
+    extractResult: TavilyExtractPayload | None = None
     structuredResponse: AssistantStructuredResponse | None = None
 
 
@@ -61,3 +80,10 @@ class PopulationToolInput(BaseModel):
 
 class TavilyToolInput(BaseModel):
     query: str
+
+
+class TavilyExtractToolInput(BaseModel):
+    urls: list[str]
+    extract_depth: Literal["basic", "advanced"] = "basic"
+    include_images: bool = False
+    query: str | None = None

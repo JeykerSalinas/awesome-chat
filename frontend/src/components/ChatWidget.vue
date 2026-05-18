@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import axios from 'axios'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import ExtractSourcesCard from '@/components/ExtractSourcesCard.vue'
 import SearchSourcesCard from '@/components/SearchSourcesCard.vue'
 
 type ChatRole = 'user' | 'assistant'
@@ -23,6 +24,24 @@ interface TavilySearchPayload {
   images?: string[]
 }
 
+interface TavilyExtractResultItem {
+  url: string
+  raw_content?: string | null
+  images?: string[]
+  favicon?: string | null
+}
+
+interface TavilyExtractFailedResultItem {
+  url: string
+  error?: string | null
+}
+
+interface TavilyExtractPayload {
+  results: TavilyExtractResultItem[]
+  failed_results?: TavilyExtractFailedResultItem[]
+  response_time?: number
+}
+
 export interface ChatMessage {
   id: string
   author: ChatRole
@@ -30,6 +49,7 @@ export interface ChatMessage {
   timestamp: string
   isLocalError?: boolean
   searchResult?: TavilySearchPayload
+  extractResult?: TavilyExtractPayload
 }
 
 const props = defineProps<{
@@ -133,6 +153,7 @@ function appendMessage(
   author: ChatRole,
   content: string,
   searchResult?: TavilySearchPayload,
+  extractResult?: TavilyExtractPayload,
   isLocalError = false,
 ) {
   messages.value.push({
@@ -142,6 +163,7 @@ function appendMessage(
     timestamp: new Date().toISOString(),
     isLocalError,
     searchResult,
+    extractResult,
   })
 }
 
@@ -168,6 +190,7 @@ async function sendMessage() {
     const { data } = await axios.post<{
       content: string
       searchResult?: TavilySearchPayload | null
+      extractResult?: TavilyExtractPayload | null
       structuredResponse?: unknown
     }>(`${apiBaseUrl}/chat`, {
         threadId: threadId.value,
@@ -177,7 +200,12 @@ async function sendMessage() {
     const assistantReply = data.content.trim() || data.searchResult?.answer?.trim() || ''
 
     if (assistantReply) {
-      appendMessage('assistant', assistantReply, data.searchResult ?? undefined)
+      appendMessage(
+        'assistant',
+        assistantReply,
+        data.searchResult ?? undefined,
+        data.extractResult ?? undefined,
+      )
     }
   } catch (error) {
     const readableMessage = axios.isAxiosError(error)
@@ -187,7 +215,7 @@ async function sendMessage() {
       : error instanceof Error
         ? error.message
         : 'Could not complete the request.'
-    appendMessage('assistant', `Agent request error: ${readableMessage}`, undefined, true)
+    appendMessage('assistant', `Agent request error: ${readableMessage}`, undefined, undefined, true)
   } finally {
     isSending.value = false
   }
@@ -354,6 +382,10 @@ onBeforeUnmount(() => {
                         v-if="message.searchResult"
                         :payload="message.searchResult"
                       />
+                      <ExtractSourcesCard
+                        v-if="message.extractResult"
+                        :payload="message.extractResult"
+                      />
                       <time class="chat-message__time">
                         {{ new Date(message.timestamp).toLocaleTimeString() }}
                       </time>
@@ -492,6 +524,10 @@ onBeforeUnmount(() => {
                       <SearchSourcesCard
                         v-if="message.searchResult"
                         :payload="message.searchResult"
+                      />
+                      <ExtractSourcesCard
+                        v-if="message.extractResult"
+                        :payload="message.extractResult"
                       />
                       <time class="chat-message__time">
                         {{ new Date(message.timestamp).toLocaleTimeString() }}
@@ -634,6 +670,10 @@ onBeforeUnmount(() => {
                         v-if="message.searchResult"
                         :payload="message.searchResult"
                       />
+                      <ExtractSourcesCard
+                        v-if="message.extractResult"
+                        :payload="message.extractResult"
+                      />
                       <time class="chat-message__time">
                         {{ new Date(message.timestamp).toLocaleTimeString() }}
                       </time>
@@ -750,13 +790,17 @@ onBeforeUnmount(() => {
                 :class="`chat-message--${message.author}`"
               >
                 <p>{{ message.content }}</p>
-                <SearchSourcesCard
-                  v-if="message.searchResult"
-                  :payload="message.searchResult"
-                />
-                <time class="chat-message__time">
-                  {{ new Date(message.timestamp).toLocaleTimeString() }}
-                </time>
+                  <SearchSourcesCard
+                    v-if="message.searchResult"
+                    :payload="message.searchResult"
+                  />
+                  <ExtractSourcesCard
+                    v-if="message.extractResult"
+                    :payload="message.extractResult"
+                  />
+                  <time class="chat-message__time">
+                    {{ new Date(message.timestamp).toLocaleTimeString() }}
+                  </time>
               </article>
             </slot>
           </template>

@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from langchain_core.messages import HumanMessage
 
-from app.schemas.chat import ChatRequest, ChatResponse, TavilySearchPayload
+from app.schemas.chat import ChatRequest, ChatResponse, TavilyExtractPayload, TavilySearchPayload
 from app.services.chat_agent import build_agent, build_agent_error_detail, build_chat_response
 from app.services.llm_factory import get_candidate_api_styles, is_api_style_fallback_error
 from app.core.config import settings
@@ -28,7 +28,8 @@ async def chat(request: ChatRequest) -> ChatResponse:
 
     for api_style in candidate_api_styles:
         search_capture: list[TavilySearchPayload] = []
-        agent = build_agent(api_style, search_capture)
+        extract_capture: list[TavilyExtractPayload] = []
+        agent = build_agent(api_style, search_capture, extract_capture)
 
         try:
             result = await agent.ainvoke(
@@ -46,6 +47,6 @@ async def chat(request: ChatRequest) -> ChatResponse:
                 continue
             break
 
-        return build_chat_response(result, search_capture)
+        return build_chat_response(result, search_capture, extract_capture)
 
     raise HTTPException(status_code=502, detail=build_agent_error_detail(last_error))

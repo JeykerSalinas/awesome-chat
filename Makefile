@@ -10,12 +10,13 @@ BACKEND_PORT := 8001
 FRONTEND_HOST := 127.0.0.1
 FRONTEND_PORT := 5173
 
-.PHONY: help check-backend check-frontend dev-backend dev-frontend dev
+.PHONY: help check-backend check-frontend dev-backend dev-langgraph dev-frontend dev
 
 help:
 	@printf "Targets disponibles:\n"
 	@printf "  make dev           Levanta backend y frontend en modo desarrollo\n"
 	@printf "  make dev-backend   Levanta FastAPI con reload\n"
+	@printf "  make dev-langgraph Levanta LangGraph Agent Server en http://127.0.0.1:2024\n"
 	@printf "  make dev-frontend  Levanta Vite para el frontend\n"
 
 check-backend:
@@ -27,6 +28,9 @@ check-frontend:
 
 dev-backend: check-backend
 	cd $(BACKEND_DIR) && .venv/bin/uvicorn $(BACKEND_APP) --reload --host $(BACKEND_HOST) --port $(BACKEND_PORT)
+
+dev-langgraph: check-backend
+	$(BACKEND_VENV)/bin/langgraph dev
 
 dev-frontend: check-frontend
 	npm run dev -- --host $(FRONTEND_HOST) --port $(FRONTEND_PORT)
