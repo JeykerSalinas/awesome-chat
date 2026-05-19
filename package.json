@@ -26,6 +26,7 @@
     "@langchain/vue": "^1.0.2",
     "axios": "^1.12.1",
     "deepagents": "^1.10.0",
+    "gsap": "^3.15.0",
     "langchain": "^1.4.0",
     "vue": "^3.5.22",
     "vue-router": "^4.6.3"

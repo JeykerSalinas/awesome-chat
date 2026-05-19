@@ -3,6 +3,7 @@ import ChatOnlyView from '@/views/ChatOnlyView.vue'
 import ChatView from '@/views/ChatView.vue'
 import CvAssistantView from '@/views/CvAssistantView.vue'
 import PlaygroundView from '@/views/PlaygroundView.vue'
+import HistoryTimeline from '@/views/HistoryTimeline.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -26,6 +27,11 @@ const router = createRouter({
       path: '/cv-assistant',
       name: 'cv-assistant',
       component: CvAssistantView,
+    },
+    {
+      path: '/timeline',
+      name: 'timeline',
+      component: HistoryTimeline,
     },
   ],
 })
