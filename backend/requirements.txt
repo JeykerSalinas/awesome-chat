@@ -8,3 +8,6 @@ langchain-tavily
 pydantic
 pydantic-settings
 python-dotenv
+python-docx
+python-multipart
+reportlab
