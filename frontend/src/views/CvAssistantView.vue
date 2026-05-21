@@ -154,8 +154,8 @@ onMounted(() => {
     <section class="cv-lab__hero">
       <h1>CV Tailor Lab</h1>
       <p>
-        Sube tu CV base en <code>.docx</code>, analiza una oferta con Tavily Extract y genera
-        versiones adaptadas sin inventar experiencia ni logros.
+        Sube tu CV base en <code>.docx</code> o <code>.pdf</code>, analiza una oferta con
+        Tavily Extract y genera versiones adaptadas sin inventar experiencia ni logros.
       </p>
     </section>
 
@@ -172,7 +172,7 @@ onMounted(() => {
           <h2>Subir CV</h2>
           <input
             type="file"
-            accept=".docx"
+            accept=".docx,.pdf,application/pdf"
             @change="onFileChange"
           />
           <input

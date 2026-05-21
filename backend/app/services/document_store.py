@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from datetime import UTC, datetime
 from io import BytesIO
@@ -9,6 +10,7 @@ from typing import Literal
 from uuid import uuid4
 
 from docx import Document as DocxDocument
+from pypdf import PdfReader
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
@@ -54,6 +56,11 @@ def _docx_path(document_id: str) -> Path:
 
 def _pdf_path(document_id: str) -> Path:
     return _document_dir(document_id) / "document.pdf"
+
+
+def _derive_display_name(filename: str) -> str:
+    name = Path(filename).name
+    return re.sub(r"(\.(docx|pdf))+$", "", name, flags=re.IGNORECASE) or Path(filename).stem
 
 
 def _to_summary(metadata: dict) -> DocumentSummary:
@@ -124,6 +131,34 @@ def _export_docx_to_pdf(docx_path: Path, pdf_path: Path) -> None:
     pdf.build(flow)
 
 
+def _export_pdf_to_docx(content: bytes, docx_path: Path) -> None:
+    reader = PdfReader(BytesIO(content))
+    document = DocxDocument()
+    extracted_blocks: list[str] = []
+
+    for page in reader.pages:
+        text = page.extract_text() or ""
+        normalized = text.replace("\r\n", "\n").replace("\r", "\n").strip()
+        if not normalized:
+            continue
+
+        extracted_blocks.extend(
+            block.strip()
+            for block in re.split(r"\n\s*\n+", normalized)
+            if block.strip()
+        )
+
+    if not extracted_blocks:
+        raise ValueError(
+            "The PDF does not contain extractable text. Please upload a text-based PDF or a .docx file."
+        )
+
+    for block in extracted_blocks:
+        document.add_paragraph(block)
+
+    document.save(docx_path)
+
+
 def _register_document(
     *,
     document_id: str,
@@ -152,21 +187,27 @@ def create_document_from_upload(
     content: bytes,
     display_name: str | None = None,
 ) -> DocumentSummary:
-    if not filename.lower().endswith(".docx"):
-        raise ValueError("Only .docx files are supported for editing.")
+    lower_filename = filename.lower()
+    if not lower_filename.endswith((".docx", ".pdf")):
+        raise ValueError("Only .docx and .pdf files are supported for editing.")
 
     document_id = str(uuid4())
     target_dir = _document_dir(document_id)
     target_dir.mkdir(parents=True, exist_ok=True)
 
     docx_path = _docx_path(document_id)
-    docx_path.write_bytes(content)
-    _export_docx_to_pdf(docx_path, _pdf_path(document_id))
+    pdf_path = _pdf_path(document_id)
 
-    base_name = Path(filename).stem
+    if lower_filename.endswith(".docx"):
+        docx_path.write_bytes(content)
+        _export_docx_to_pdf(docx_path, pdf_path)
+    else:
+        pdf_path.write_bytes(content)
+        _export_pdf_to_docx(content, docx_path)
+
     return _register_document(
         document_id=document_id,
-        display_name=display_name or base_name,
+        display_name=display_name or _derive_display_name(filename),
         original_filename=filename,
         kind="uploaded",
     )
@@ -258,4 +299,3 @@ def create_generated_variant(
 
 def get_document_bytes(document_id: str, format: DocumentFormat) -> bytes:
     return get_document_download_path(document_id, format).read_bytes()
-

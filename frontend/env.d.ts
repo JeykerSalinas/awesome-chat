@@ -1,4 +1,6 @@
 /// <reference types="vite/client" />
+/// <reference types="unplugin-icons/types/vue" />
+import 'vue-router'
 
 interface ImportMetaEnv {
   readonly VITE_TAVILY_API_KEY?: string
@@ -7,4 +9,12 @@ interface ImportMetaEnv {
 
 interface ImportMeta {
   readonly env: ImportMetaEnv
+}
+
+declare module 'vue-router' {
+  interface RouteMeta {
+    menuLabel?: string
+    visibleInMenu?: boolean
+    menuOrder?: number
+  }
 }

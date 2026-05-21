@@ -31,6 +31,7 @@
     "vue-router": "^4.6.3"
   },
   "devDependencies": {
+    "@iconify-json/mdi": "^1.2.3",
     "@tsconfig/node22": "^22.0.2",
     "@types/node": "^22.18.11",
     "@vitejs/plugin-vue": "^6.0.1",
@@ -41,6 +42,7 @@
     "sass-embedded": "^1.93.2",
     "start-server-and-test": "^2.1.2",
     "typescript": "~5.9.0",
+    "unplugin-icons": "^23.0.1",
     "vite": "npm:rolldown-vite@latest",
     "vite-plugin-vue-devtools": "^8.0.3",
     "vue-tsc": "^3.1.1"
