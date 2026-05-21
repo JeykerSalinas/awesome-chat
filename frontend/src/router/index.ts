@@ -11,21 +11,41 @@ const router = createRouter({
       path: '/',
       name: 'playground',
       component: PlaygroundView,
+      meta: {
+        menuLabel: 'Playground',
+        visibleInMenu: true,
+        menuOrder: 1,
+      },
     },
     {
       path: '/chat',
       name: 'chat-only',
       component: ChatOnlyView,
+      meta: {
+        menuLabel: 'Chat',
+        visibleInMenu: true,
+        menuOrder: 2,
+      },
     },
     {
       path: '/superchat',
       name: 'super-chat',
       component: ChatView,
+      meta: {
+        menuLabel: 'Super Chat',
+        visibleInMenu: true,
+        menuOrder: 3,
+      },
     },
     {
       path: '/cv-assistant',
       name: 'cv-assistant',
       component: CvAssistantView,
+      meta: {
+        menuLabel: 'CV Assistant',
+        visibleInMenu: true,
+        menuOrder: 4,
+      },
     },
   ],
 })
