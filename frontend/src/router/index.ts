@@ -3,6 +3,7 @@ import ChatOnlyView from '@/views/ChatOnlyView.vue'
 import ChatView from '@/views/ChatView.vue'
 import CvAssistantView from '@/views/CvAssistantView.vue'
 import PlaygroundView from '@/views/PlaygroundView.vue'
+import RagSystemManagement from '@/views/RagSystemManagement.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -45,6 +46,16 @@ const router = createRouter({
         menuLabel: 'CV Assistant',
         visibleInMenu: true,
         menuOrder: 4,
+      },
+    },
+    {
+      path: '/rag-system',
+      name: 'rag-system',
+      component: RagSystemManagement,
+      meta: {
+        menuLabel: 'RAG Management',
+        visibleInMenu: true,
+        menuOrder: 5,
       },
     },
   ],

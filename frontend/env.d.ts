@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 /// <reference types="unplugin-icons/types/vue" />
 import 'vue-router'
+import '@/types/vue'
 
 interface ImportMetaEnv {
   readonly VITE_TAVILY_API_KEY?: string

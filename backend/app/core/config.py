@@ -17,6 +17,7 @@ ALLOWED_ORIGINS = [
     "http://127.0.0.1:4173",
 ]
 LOCALHOST_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+DEFAULT_DATABASE_PATH = BASE_DIR / "data" / "app.db"
 
 
 class Settings(BaseSettings):
@@ -70,6 +71,11 @@ class Settings(BaseSettings):
         default="https://api.tavily.com",
         validation_alias=AliasChoices("TAVILY_BASE_URL"),
     )
+    database_url: str = Field(
+        default=f"sqlite:///{DEFAULT_DATABASE_PATH}",
+        validation_alias=AliasChoices("DATABASE_URL"),
+    )
+
 
 
 settings = Settings()

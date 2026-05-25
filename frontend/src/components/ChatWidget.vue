@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import axios from 'axios'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ExtractSourcesCard from '@/components/ExtractSourcesCard.vue'
 import SearchSourcesCard from '@/components/SearchSourcesCard.vue'
+import { apiBaseUrl, apiClient, isAxiosError } from '@/plugins/axios'
 
 type ChatRole = 'user' | 'assistant'
 
@@ -173,8 +173,6 @@ function resetConversation() {
   threadId.value = createThreadId()
 }
 
-const apiBaseUrl = import.meta.env.VITE_APP_BACKEND_URL ?? 'http://127.0.0.1:8000'
-
 async function sendMessage() {
   const trimmed = draft.value.trim()
   if (!trimmed || isSending.value) return
@@ -187,12 +185,12 @@ async function sendMessage() {
   isSending.value = true
 
   try {
-    const { data } = await axios.post<{
+    const { data } = await apiClient.post<{
       content: string
       searchResult?: TavilySearchPayload | null
       extractResult?: TavilyExtractPayload | null
       structuredResponse?: unknown
-    }>(`${apiBaseUrl}/chat`, {
+    }>('/chat', {
         threadId: threadId.value,
         message: trimmed,
     })
@@ -208,7 +206,7 @@ async function sendMessage() {
       )
     }
   } catch (error) {
-    const readableMessage = axios.isAxiosError(error)
+    const readableMessage = isAxiosError(error)
       ? error.response?.status
         ? `Backend respondió con ${error.response.status}`
         : `Could not reach the backend at ${apiBaseUrl}. Check that it is running and that CORS allows the current frontend origin.`

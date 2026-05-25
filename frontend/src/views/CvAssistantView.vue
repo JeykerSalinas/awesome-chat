@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import axios from 'axios'
 import { computed, onMounted, reactive, ref } from 'vue'
+import { apiBaseUrl, apiClient, isAxiosError } from '@/plugins/axios'
 
 type DocumentSummary = {
   id: string
@@ -36,8 +36,6 @@ type OptimizeResponse = {
   structured_response?: StructuredResponse | null
 }
 
-const apiBaseUrl = import.meta.env.VITE_APP_BACKEND_URL ?? 'http://127.0.0.1:8001'
-
 const documents = ref<DocumentSummary[]>([])
 const selectedDocumentId = ref('')
 const jobUrl = ref('')
@@ -54,7 +52,7 @@ const sourceDocuments = computed(() => documents.value.filter((item) => item.kin
 const firstOfferResult = computed(() => optimizationResult.value?.offer_extract?.results?.[0] ?? null)
 
 async function fetchDocuments() {
-  const { data } = await axios.get<DocumentSummary[]>(`${apiBaseUrl}/documents`)
+  const { data } = await apiClient.get<DocumentSummary[]>('/documents')
   documents.value = data
   for (const document of data) {
     editedNames[document.id] = document.display_name
@@ -82,12 +80,12 @@ async function uploadDocument() {
   errorMessage.value = ''
   isUploading.value = true
   try {
-    await axios.post(`${apiBaseUrl}/documents`, form)
+    await apiClient.post('/documents', form)
     uploadFile.value = null
     uploadName.value = ''
     await fetchDocuments()
   } catch (error) {
-    errorMessage.value = axios.isAxiosError(error)
+    errorMessage.value = isAxiosError(error)
       ? error.response?.data?.detail ?? 'No se pudo subir el documento.'
       : 'No se pudo subir el documento.'
   } finally {
@@ -99,12 +97,12 @@ async function renameDocument(documentId: string) {
   const displayName = editedNames[documentId]?.trim()
   if (!displayName) return
 
-  await axios.patch(`${apiBaseUrl}/documents/${documentId}`, { display_name: displayName })
+  await apiClient.patch(`/documents/${documentId}`, { display_name: displayName })
   await fetchDocuments()
 }
 
 async function deleteDocument(documentId: string) {
-  await axios.delete(`${apiBaseUrl}/documents/${documentId}`)
+  await apiClient.delete(`/documents/${documentId}`)
   if (selectedDocumentId.value === documentId) {
     selectedDocumentId.value = ''
   }
@@ -122,7 +120,7 @@ async function optimizeCv() {
   optimizationResult.value = null
   isOptimizing.value = true
   try {
-    const { data } = await axios.post<OptimizeResponse>(`${apiBaseUrl}/cv-assistant/optimize`, {
+    const { data } = await apiClient.post<OptimizeResponse>('/cv-assistant/optimize', {
       document_id: selectedDocumentId.value,
       job_url: jobUrl.value.trim(),
       instructions: instructions.value.trim() || null,
@@ -130,7 +128,7 @@ async function optimizeCv() {
     optimizationResult.value = data
     await fetchDocuments()
   } catch (error) {
-    errorMessage.value = axios.isAxiosError(error)
+    errorMessage.value = isAxiosError(error)
       ? error.response?.data?.detail ?? 'No se pudo adaptar el CV.'
       : 'No se pudo adaptar el CV.'
   } finally {
@@ -374,13 +372,9 @@ onMounted(() => {
   color: #991b1b
 
 .cv-lab__layout
-  max-width: 1100px
   margin: 0 auto
   width: 100%
-  display: grid
-  gap: 1.25rem
-  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr)
-
+  display: flex
 .cv-lab__sidebar
   display: grid
   gap: 1.25rem
@@ -477,7 +471,7 @@ onMounted(() => {
   background: rgba(15, 23, 42, 0.04)
   display: grid
   gap: 0.9rem
-
+  overflow: auto
   p
     margin: 0
     color: #334155
